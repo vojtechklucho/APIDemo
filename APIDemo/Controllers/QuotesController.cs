@@ -21,6 +21,44 @@ namespace APIDemo.Controllers
             _context = context;
         }
 
+        //podle id quote, vrátí tagy
+        [HttpGet("{id}/tags")]
+        public async Task<ActionResult<IEnumerable<Tag>>> GetQuoteTags(int id)
+        {
+            var quote = _context.Quotes.Where(q => q.Id == id)
+                    .Include(s => s.QuoteTags)
+                    .ThenInclude(tag => tag.Tag);
+
+            if (quote == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(quote.Select(item => item.QuoteTags.Select(tag => tag.Tag)).ToList());
+        }
+
+        //vytvoří nové mezitabulky
+        //ke quote přidá další tagy
+        [HttpPost("{id}/tags")]
+        public async Task<ActionResult<Quote>> PostTags(int id, [FromBody] IEnumerable<int> tagIds)
+        {
+            IList<QuoteTag> quoteTags = new List<QuoteTag>();
+            foreach (var item in tagIds)
+            {
+                QuoteTag newQuote = new QuoteTag
+                {
+                    QuoteId = id,
+                    TagId = item
+                };
+                quoteTags.Add(newQuote);
+            }
+            _context.QuoteTags.AddRange(quoteTags);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetTags", quoteTags);
+        }
+
+
         // GET: api/Quotes
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Quote>>> GetQuotes()
