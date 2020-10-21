@@ -12,6 +12,7 @@ using APIDemo.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Http;
 
 namespace APIDemo
 {
@@ -30,8 +31,34 @@ namespace APIDemo
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     Configuration.GetConnectionString("DefaultConnection")));
-            services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
-                .AddEntityFrameworkStores<ApplicationDbContext>();
+            services.AddDefaultIdentity<IdentityUser>(options =>
+            {
+                options.SignIn.RequireConfirmedAccount = true;
+                options.Password.RequiredLength = 4;
+                options.User.RequireUniqueEmail = true;
+                options.SignIn.RequireConfirmedEmail = false;
+            })
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultTokenProviders(); //defaultní nastavení tokenu
+            services.ConfigureApplicationCookie(options => {
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    //pøepsání defaultního chování pøi redirectu na login
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+            });
+
+            //services pro react 
+            services.AddCors(options => {
+                options.AddDefaultPolicy(builder => {
+                    builder.WithOrigins("htpp://localhost:3000")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+                });
+            });
+
             services.AddControllersWithViews();
             services.AddRazorPages();
         }
@@ -54,6 +81,7 @@ namespace APIDemo
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseCors();
 
             app.UseAuthentication();
             app.UseAuthorization();
